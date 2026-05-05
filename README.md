@@ -200,7 +200,7 @@ This project demonstrates:
 
 ## 👨‍💻 Author
 
-* Architha Ojha
+* ADINA ISRAN
 
 
 ---

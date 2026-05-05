@@ -1,6 +1,7 @@
 package in.ojha.com.authify.service;
 
 
+import in.ojha.com.authify.io.OtpDeliveryResponse;
 import in.ojha.com.authify.io.ProfileRequest;
 import in.ojha.com.authify.io.ProfileResponse;
 import in.ojha.com.authify.io.UpdateProfileRequest;
@@ -17,7 +18,7 @@ public interface ProfileService {
 
     void resetPassword(String email,String otp, String newPassword);
 
-    void sendOtp(String email);
+    OtpDeliveryResponse sendOtp(String email);
 
     void verifyOtp(String email,String otp);
 

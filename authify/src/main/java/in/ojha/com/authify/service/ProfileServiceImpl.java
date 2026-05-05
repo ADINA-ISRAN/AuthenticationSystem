@@ -1,20 +1,22 @@
 package in.ojha.com.authify.service;
 
 
-import in.ojha.com.authify.entity.UserEntity;
-import in.ojha.com.authify.io.ProfileRequest;
-import in.ojha.com.authify.io.ProfileResponse;
-import in.ojha.com.authify.io.UpdateProfileRequest;
-import in.ojha.com.authify.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
+import in.ojha.com.authify.entity.UserEntity;
+import in.ojha.com.authify.io.OtpDeliveryResponse;
+import in.ojha.com.authify.io.ProfileRequest;
+import in.ojha.com.authify.io.ProfileResponse;
+import in.ojha.com.authify.io.UpdateProfileRequest;
+import in.ojha.com.authify.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -110,12 +112,17 @@ public class ProfileServiceImpl implements ProfileService{
     }
 
     @Override
-    public void sendOtp(String email) {
+    public OtpDeliveryResponse sendOtp(String email) {
 
         UserEntity existingUser=userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found:" +email));
         if(existingUser.getIsAccountVerified() != null && existingUser.getIsAccountVerified()){
-            return;
+            return OtpDeliveryResponse.builder()
+                    .delivered(true)
+                    .devMode(false)
+                    .email(email)
+                    .message("Email is already verified")
+                    .build();
         }
         //Generate 6 digit Otp
         String otp =String.valueOf(ThreadLocalRandom.current().nextInt(100000,1000000));
@@ -129,7 +136,26 @@ public class ProfileServiceImpl implements ProfileService{
 
         //save to database
         userRepository.save(existingUser);
-        emailService.sendOtpEmail(existingUser.getEmail(),otp);
+        try {
+            emailService.sendOtpEmail(existingUser.getEmail(),otp);
+            return OtpDeliveryResponse.builder()
+                    .delivered(true)
+                    .devMode(false)
+                    .email(email)
+                    .message("OTP sent successfully")
+                    .build();
+        } catch (IllegalStateException ex) {
+            if (ex.getMessage() != null && ex.getMessage().contains("SMTP is not configured")) {
+                return OtpDeliveryResponse.builder()
+                        .delivered(false)
+                        .devMode(true)
+                        .email(email)
+                        .otp(otp)
+                        .message("SMTP is not configured. Use this OTP in local development.")
+                        .build();
+            }
+            throw ex;
+        }
 
 
 

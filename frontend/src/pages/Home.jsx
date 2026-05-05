@@ -13,6 +13,7 @@ const Home = () => {
     backendURL,
     setUserData,
     setIsLoggedIn,
+    getUserData,
   } = useContext(AppContext);
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -63,10 +64,20 @@ const Home = () => {
 
       if (response.status === 200) {
         setDropdownOpen(false);
-        toast.success("OTP sent successfully!");
-        navigate("/email-verify", {
-          state: { email: userData?.email },
-        });
+        const devOtp = response?.data?.otp;
+        if (devOtp) {
+          toast.info(`Local dev OTP: ${devOtp}`);
+        } else {
+          toast.success("OTP sent successfully!");
+        }
+        const refreshedUser = await getUserData();
+        if (refreshedUser?.isAccountVerified) {
+          navigate("/", { replace: true });
+        } else {
+          navigate("/email-verify", {
+            state: { email: userData?.email, otp: devOtp },
+          });
+        }
       } else {
         toast.error("Unable to send OTP");
       }

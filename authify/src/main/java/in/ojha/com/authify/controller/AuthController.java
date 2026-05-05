@@ -25,6 +25,7 @@ import in.ojha.com.authify.entity.UserEntity;
 import in.ojha.com.authify.io.AuthRequest;
 import in.ojha.com.authify.io.AuthResponse;
 import in.ojha.com.authify.io.AuthStateResponse;
+import in.ojha.com.authify.io.OtpDeliveryResponse;
 import in.ojha.com.authify.io.ResetPasswordRequest;
 import in.ojha.com.authify.repository.UserRepository;
 import in.ojha.com.authify.service.AppUserDetailService;
@@ -57,21 +58,14 @@ public class AuthController {
             final UserDetails userDetails=appUserDetailService.loadUserByUsername(request.getEmail());
             final String jwtToken = jwtUtil.generateToken(userDetails);
             
-            // Update login statistics
             UserEntity user = userRepository.findByEmail(request.getEmail()).orElse(null);
-            if (user != null) {
-                Long currentLoginCount = user.getLoginCount() != null ? user.getLoginCount() : 0L;
-                user.setLoginCount(currentLoginCount + 1);
-                user.setLastLoginTime(System.currentTimeMillis());
-                userRepository.save(user);
-            }
-            
-                ResponseCookie cookie = ResponseCookie.from("jwt",jwtToken)
+
+            ResponseCookie cookie = ResponseCookie.from("jwt",jwtToken)
                     .httpOnly(true)
                     .path("/")
                     .maxAge(Duration.ofDays(1))
-                    .sameSite("None")
-                    .secure(true)
+                    .sameSite("Lax")
+                    .secure(false)
                     .build();
             Boolean isAccountVerified = user != null ? Boolean.TRUE.equals(user.getIsAccountVerified()) : false;
             return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE,cookie.toString())
@@ -88,7 +82,7 @@ public class AuthController {
             error.put("error",true);
             error.put("message","Account is disabled");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
-        }catch (Exception ex){
+        }catch (RuntimeException ex){
             Map<String,Object> error = new HashMap<>();
             error.put("error",true);
             error.put("message","Authentication failed");
@@ -134,7 +128,7 @@ public class AuthController {
             }
 
             return ResponseEntity.ok(new AuthStateResponse(true, email, Boolean.TRUE.equals(user.getIsAccountVerified())));
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             return ResponseEntity.ok(new AuthStateResponse(false, null, false));
         }
     }
@@ -160,7 +154,7 @@ public class AuthController {
             throw e;
         }catch (IllegalStateException e){
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,e.getMessage(), e);
-        }catch (Exception e){
+        }catch (RuntimeException e){
             throw  new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,e.getMessage(), e);
 
         }
@@ -183,7 +177,7 @@ public class AuthController {
         catch (IllegalStateException e){
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,e.getMessage(), e);
         }
-        catch (Exception e){
+        catch (RuntimeException e){
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,e.getMessage(), e);
         }
 
@@ -193,7 +187,7 @@ public class AuthController {
             "/send-otp", "/auth/send-otp",
             "/api/v1.0/send-otp", "/api/v1.0/auth/send-otp"
     })
-    public void sendVerifyOtp(@RequestParam(required = false) String email,
+    public ResponseEntity<OtpDeliveryResponse> sendVerifyOtp(@RequestParam(required = false) String email,
                               @RequestBody(required = false) Map<String, Object> request,
                               @CurrentSecurityContext(expression = "authentication?.name") String authenticatedEmail){
         if ("anonymousUser".equalsIgnoreCase(authenticatedEmail)) {
@@ -211,12 +205,12 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
         }
         try{
-            profileService.sendOtp(targetEmail);
+            return ResponseEntity.ok(profileService.sendOtp(targetEmail));
         }catch (ResponseStatusException e){
             throw e;
         }catch (IllegalStateException e){
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,e.getMessage(), e);
-        }catch (Exception e){
+        }catch (RuntimeException e){
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,e.getMessage(), e);
         }
 

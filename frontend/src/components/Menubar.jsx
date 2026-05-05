@@ -13,6 +13,7 @@ const Menubar = () => {
     backendURL,
     setUserData,
     setIsLoggedIn,
+    getUserData,
     darkMode,
     setDarkMode,
     notifications = [],
@@ -61,31 +62,30 @@ const Menubar = () => {
   const sendVerificationOTP = async (e) => {
     if (e && e.stopPropagation) e.stopPropagation();
     setDropdownOpen(false);
-    console.log("sendVerificationOTP clicked", userData?.email);
 
     axios.defaults.withCredentials = true;
 
-    // Navigate immediately so user can enter OTP even if sending fails
     try {
-      navigate("/email-verify", { state: { email: userData?.email } });
-    } catch (navErr) {
-      console.error("Navigation error:", navErr);
-    }
-
-    // Fire-and-forget OTP send so navigation is not blocked by SMTP failures
-    axios.post(`${backendURL}/send-otp`, { email: userData?.email })
-      .then((response) => {
-        console.log("send-otp response", response?.status, response?.data);
-        if (response && (response.status === 200 || response.status === 201)) {
-          toast.success("OTP sent successfully!");
+      const response = await axios.post(`${backendURL}/send-otp`, { email: userData?.email });
+      if (response && (response.status === 200 || response.status === 201)) {
+        const devOtp = response?.data?.otp;
+        if (devOtp) {
+          toast.info(`Local dev OTP: ${devOtp}`);
         } else {
-          toast.error("Unable to send OTP");
+          toast.success("OTP sent successfully!");
         }
-      })
-      .catch((error) => {
-        console.error("send-otp error", error);
-        toast.error(error?.response?.data?.message || error?.message || "Failed to send OTP");
-      });
+        const refreshedUser = await getUserData();
+        if (refreshedUser?.isAccountVerified) {
+          navigate("/");
+        } else {
+          navigate("/email-verify", { state: { email: userData?.email, otp: devOtp } });
+        }
+      } else {
+        toast.error("Unable to send OTP");
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error?.message || "Failed to send OTP");
+    }
   };
 
   return (

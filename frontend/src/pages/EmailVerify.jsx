@@ -14,6 +14,7 @@ const EmailVerify = () => {
     useContext(AppContext);
 
   const targetEmail = location.state?.email || userData?.email || "";
+  const devOtp = location.state?.otp || "";
 
   const navigate = useNavigate();
 
@@ -21,6 +22,16 @@ const EmailVerify = () => {
   useEffect(() => {
     inputRef.current[0]?.focus();
   }, []);
+
+  useEffect(() => {
+    if (devOtp && devOtp.length === 6) {
+      devOtp.split("").forEach((digit, index) => {
+        if (inputRef.current[index]) {
+          inputRef.current[index].value = digit;
+        }
+      });
+    }
+  }, [devOtp]);
 
   // 🔢 Handle input
   const handleChange = (e, index) => {
@@ -130,6 +141,12 @@ const EmailVerify = () => {
         <p className="mb-4">
           Enter the 6 digit code sent to {targetEmail || "your email"}.
         </p>
+
+        {devOtp && (
+          <p className="mb-3 text-info small">
+            Local development OTP: {devOtp}
+          </p>
+        )}
 
         {/* OTP INPUT */}
         <div className="email-verify-otp-row mb-4">
